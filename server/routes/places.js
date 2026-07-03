@@ -2,6 +2,9 @@ import { Router } from 'express'
 import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace, updatePlace, getUnverifiedWhatsAppPlaces } from '../../database/db.js'
 import { scrapePlaces, verifySingleWhatsApp, verifyBatchWhatsApp } from '../../scraper/googleMapsScraper.js'
 import { db } from '../../database/db.js'
+import { createLogger } from '../logger.js'
+
+const log = createLogger('routes')
 
 export const placesRouter = Router()
 
@@ -145,9 +148,9 @@ placesRouter.post('/check-whatsapp', async (req, res) => {
           updatePlace(match.id, { whatsapp_verified: r.hasWhatsApp ? 1 : 0 })
         }
       }
-      console.log(`WA batch check completed: ${results.length} numbers`)
+      log.info({ count: results.length }, 'WA batch check completed')
     } catch (err) {
-      console.error('WA batch check error:', err)
+      log.error({ err }, 'WA batch check error')
     }
   })()
 })

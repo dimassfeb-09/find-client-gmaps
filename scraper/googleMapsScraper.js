@@ -1,4 +1,7 @@
 import puppeteer from 'puppeteer'
+import { createLogger } from '../server/logger.js'
+
+const log = createLogger('scraper')
 
 export async function scrapePlaces(keyword, location, options = {}) {
   const { mode = 'sequential', concurrency = 3, onProgress } = options
@@ -15,7 +18,7 @@ export async function scrapePlaces(keyword, location, options = {}) {
     // Step 1: Get all listing URLs (same for both modes)
     const listings = await getListings(browser, keyword, location)
     const total = Math.min(listings.length, 20)
-    console.log(`  Found ${listings.length} results, processing up to ${total}`)
+    log.info({ total: listings.length }, `Found ${listings.length} results, processing up to ${total}`)
     onProgress?.({ type: 'listings', total })
 
     if (mode === 'concurrent' && total > 0) {
@@ -27,7 +30,7 @@ export async function scrapePlaces(keyword, location, options = {}) {
     // Step 3: Verify WhatsApp numbers automatically
     await verifyWhatsAppNumbers(browser, results, onProgress)
 
-    console.log(`  Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
+    log.info({ saved: results.length }, `Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
     onProgress?.({ type: 'done', count: results.length })
   } catch (err) {
     onProgress?.({ type: 'error', message: err.message })
@@ -207,13 +210,13 @@ async function scrapeSequential(browser, listings, total, keyword, location, res
   for (let i = 0; i < total; i++) {
     const listing = listings[i]
     if (!listing.name) continue
-    console.log(`  [${i + 1}/${total}] ${listing.name}...`)
+    log.info({ progress: `${i + 1}/${total}`, name: listing.name }, `[${i + 1}/${total}] ${listing.name}`)
     onProgress?.({ type: 'progress', current: i + 1, total, name: listing.name })
 
     try {
       await processListing(browser, listing, keyword, location, results, onProgress)
     } catch (err) {
-      console.log(`    x error: ${err.message?.slice(0, 80) || 'unknown'}`)
+      log.warn({ err }, `[${i + 1}/${total}] ${listing.name} error`)
       onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
     }
   }
@@ -244,12 +247,12 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
       const page = pages[idx]
       return (async () => {
         if (!listing.name) return
-        console.log(`  [${globalIdx + 1}/${total}] ${listing.name}...`)
+        log.info({ progress: `${globalIdx + 1}/${total}`, name: listing.name }, `[${globalIdx + 1}/${total}] ${listing.name}`)
         onProgress?.({ type: 'progress', current: globalIdx + 1, total, name: listing.name })
         try {
           await processListingOnPage(page, listing, keyword, location, results, onProgress, globalIdx + 1, total)
         } catch (err) {
-          console.log(`    [${globalIdx + 1}/${total}] x ${err.message?.slice(0, 80) || 'unknown'}`)
+          log.warn({ err }, `[${globalIdx + 1}/${total}] ${listing.name} error`)
           onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
         }
       })()
@@ -345,7 +348,7 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     searchKeyword: `${keyword} ${location}`,
   })
 
-  console.log(`    v phone: ${details.phone ? 'yes' : 'no'}, website: ${details.website ? 'yes' : 'no'}`)
+  log.debug({ hasPhone: !!details.phone, hasWebsite: !!details.website }, `${listing.name} details`)
   onProgress?.({
     type: 'detail',
     current: current ?? results.length,

@@ -3,6 +3,8 @@ import cors from 'cors'
 import path from 'path'
 import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
+import pinoHttp from 'pino-http'
+import logger from './logger.js'
 import { placesRouter } from './routes/places.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -11,6 +13,16 @@ const PORT = process.env.PORT || 4000
 
 app.use(cors())
 app.use(express.json())
+
+// HTTP request logging
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: {
+      ignore: (req) => req.url === '/api/scrape/progress',
+    },
+  }),
+)
 
 app.use('/api', placesRouter)
 
@@ -24,5 +36,5 @@ if (existsSync(clientDist)) {
 }
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+  logger.info({ port: PORT }, `Server running`)
 })
