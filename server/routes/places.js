@@ -75,7 +75,7 @@ placesRouter.get('/stats', (_req, res) => {
 })
 
 placesRouter.post('/scrape', async (req, res) => {
-  const { keyword, location, mode, concurrency, maxResults, sessionId } = req.body
+  const { keyword, location, mode, concurrency, maxResults, checkWhatsApp, sessionId } = req.body
   if (!keyword || !location) {
     return res.status(400).json({ error: 'keyword and location are required' })
   }
@@ -97,6 +97,7 @@ placesRouter.post('/scrape', async (req, res) => {
       mode,
       concurrency,
       maxResults: maxResults ? parseInt(maxResults, 10) : undefined,
+      checkWhatsApp: checkWhatsApp !== undefined ? checkWhatsApp === true || checkWhatsApp === 'true' : undefined,
       onProgress: (p) => send(p),
     })
 

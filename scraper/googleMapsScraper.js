@@ -34,7 +34,7 @@ async function setupPage(page) {
 }
 
 export async function scrapePlaces(keyword, location, options = {}) {
-  const { mode = 'sequential', concurrency = 3, maxResults = 20, onProgress } = options
+  const { mode = 'sequential', concurrency = 3, maxResults = 20, checkWhatsApp = true, onProgress } = options
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -57,8 +57,10 @@ export async function scrapePlaces(keyword, location, options = {}) {
       await scrapeSequential(browser, listings, total, keyword, location, results, onProgress)
     }
 
-    // Step 3: Verify WhatsApp numbers automatically
-    await verifyWhatsAppNumbers(browser, results, onProgress)
+    // Step 3: Verify WhatsApp numbers (optional)
+    if (checkWhatsApp) {
+      await verifyWhatsAppNumbers(browser, results, onProgress)
+    }
 
     log.info({ saved: results.length }, `Completed: ${results.length}/${Math.min(listings.length, maxResults)} places saved`)
     onProgress?.({ type: 'done', count: results.length })

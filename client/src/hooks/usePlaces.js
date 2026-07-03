@@ -51,7 +51,7 @@ export function usePlaces() {
     fetchPlaces()
   }, [fetchPlaces])
 
-  const triggerScrape = async (keyword, location, mode = 'sequential', maxResults) => {
+  const triggerScrape = async (keyword, location, mode = 'sequential', maxResults, checkWhatsApp = true) => {
     setIsScraping(true)
     setScrapeProgress([])
 
@@ -80,7 +80,7 @@ export function usePlaces() {
     await fetch(`${API}/scrape`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, location, mode, maxResults, sessionId }),
+      body: JSON.stringify({ keyword, location, mode, maxResults, checkWhatsApp, sessionId }),
     })
   }
 

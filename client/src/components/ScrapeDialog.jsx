@@ -15,6 +15,7 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
   const locationRef = useRef(null)
   const modeRef = useRef(null)
   const maxResultsRef = useRef(null)
+  const checkWARef = useRef(null)
   const logEndRef = useRef(null)
 
   useEffect(() => {
@@ -26,8 +27,9 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
     const location = locationRef.current?.value
     const mode = modeRef.current?.value || 'sequential'
     const maxResults = parseInt(maxResultsRef.current?.value, 10) || 20
+    const checkWhatsApp = checkWARef.current?.checked ?? true
     if (!keyword || !location) return
-    onScrape(keyword, location, mode, maxResults)
+    onScrape(keyword, location, mode, maxResults, checkWhatsApp)
   }
 
   const lastProgress = scrapeProgress.findLast((p) => p.type === 'progress' || p.type === 'detail')
@@ -91,7 +93,17 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
               className="h-9"
             />
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer pb-1 select-none">
+              <input
+                ref={checkWARef}
+                type="checkbox"
+                defaultChecked
+                disabled={isScraping}
+                className="size-3.5 accent-emerald-600"
+              />
+              WA check
+            </label>
             <Button onClick={handleScrape} disabled={isScraping}>
               {isScraping ? 'Scraping...' : 'Scrape'}
             </Button>
