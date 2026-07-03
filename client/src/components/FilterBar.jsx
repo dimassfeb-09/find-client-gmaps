@@ -18,7 +18,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Trash2, Search } from 'lucide-react'
 
 export function FilterBar({ filters, setFilters, cities, onClear }) {
   return (
@@ -27,21 +26,15 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
         Filters
       </div>
       <div className="flex flex-wrap gap-2">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[180px]">
-          <Search
-            size={14}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-          />
+        <div className="flex-1 min-w-[180px]">
           <Input
             placeholder="Search name or address..."
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            className="pl-8 h-9 text-sm"
+            className="h-9 text-sm"
           />
         </div>
 
-        {/* City */}
         <Select
           value={filters.city || 'all'}
           onValueChange={(v) => setFilters((f) => ({ ...f, city: v === 'all' ? '' : v }))}
@@ -59,7 +52,6 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
           </SelectContent>
         </Select>
 
-        {/* Website */}
         <Select
           value={filters.hasWebsite || 'all'}
           onValueChange={(v) =>
@@ -76,7 +68,6 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
           </SelectContent>
         </Select>
 
-        {/* Phone */}
         <Select
           value={filters.hasPhone || 'all'}
           onValueChange={(v) =>
@@ -93,7 +84,6 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
           </SelectContent>
         </Select>
 
-        {/* WhatsApp */}
         <Select
           value={filters.hasWhatsApp || 'all'}
           onValueChange={(v) =>
@@ -105,20 +95,18 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">08xx (likely WA)</SelectItem>
-            <SelectItem value="false">Non-08xx</SelectItem>
+            <SelectItem value="true">Has WhatsApp</SelectItem>
+            <SelectItem value="false">No WhatsApp</SelectItem>
           </SelectContent>
         </Select>
 
-        {/* Clear Button */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+              className="h-9 text-destructive border-destructive/30 hover:bg-destructive/10"
             >
-              <Trash2 size={14} />
               Clear Data
             </Button>
           </AlertDialogTrigger>

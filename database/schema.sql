@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS places (
   email TEXT,
   website TEXT,
   has_website INTEGER DEFAULT 0,
+  phone_verified INTEGER DEFAULT 0,
+  whatsapp_verified INTEGER DEFAULT 0,
   search_keyword TEXT,
   scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

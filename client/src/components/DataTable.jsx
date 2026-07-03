@@ -19,14 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Trash2, ExternalLink, MessageCircle, Globe, Database } from 'lucide-react'
-
-function isLikelyWhatsApp(phone) {
-  if (!phone) return false
-  return /^08|\+628|^628/.test(phone.replace(/\s/g, ''))
-}
 
 function toWhatsAppLink(phone) {
+  if (!phone) return null
   const digits = phone.replace(/\D/g, '')
   let wa = digits
   if (wa.startsWith('0')) wa = '62' + wa.slice(1)
@@ -48,7 +43,6 @@ export function DataTable({ places, loading, onDelete }) {
   if (places.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-        <Database size={32} className="text-muted-foreground/40" />
         <p className="text-sm font-medium">No data yet</p>
         <p className="text-xs text-muted-foreground/60">
           Run a scrape or adjust your filters.
@@ -79,26 +73,25 @@ export function DataTable({ places, loading, onDelete }) {
               <TableRow key={place.id} className="group">
                 <TableCell className="font-medium text-sm">{place.name}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate" title={place.address}>
-                  {place.address || '—'}
+                  {place.address || '-'}
                 </TableCell>
                 <TableCell className="text-xs">{place.city}</TableCell>
                 <TableCell className="text-[11px] text-muted-foreground tabular-nums">
                   {place.latitude && place.longitude
                     ? `${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}`
-                    : '—'}
+                    : '-'}
                 </TableCell>
                 <TableCell>
                   {place.phone ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {isLikelyWhatsApp(place.phone) ? (
+                      {place.whatsapp_verified ? (
                         <>
                           <a
                             href={toWhatsAppLink(place.phone)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-medium text-emerald-600 hover:underline inline-flex items-center gap-1"
+                            className="text-xs font-medium text-emerald-600 hover:underline"
                           >
-                            <MessageCircle size={12} />
                             {place.phone}
                           </a>
                           <Badge
@@ -113,11 +106,11 @@ export function DataTable({ places, loading, onDelete }) {
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <span className="text-xs text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {place.email || '—'}
+                  {place.email || '-'}
                 </TableCell>
                 <TableCell className="max-w-[140px]">
                   {place.website ? (
@@ -125,14 +118,12 @@ export function DataTable({ places, loading, onDelete }) {
                       href={place.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 truncate max-w-full"
+                      className="text-xs text-blue-600 hover:underline truncate inline-block max-w-full"
                     >
-                      <Globe size={11} />
-                      <span className="truncate">{place.website.replace(/^https?:\/\//, '')}</span>
-                      <ExternalLink size={10} className="shrink-0" />
+                      {place.website.replace(/^https?:\/\//, '')}
                     </a>
                   ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <span className="text-xs text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -160,7 +151,13 @@ export function DataTable({ places, loading, onDelete }) {
                         size="icon"
                         className="size-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-opacity"
                       >
-                        <Trash2 size={13} />
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c0 1 2 1 2 2v2" />
+                          <line x1="10" x2="10" y1="11" y2="17" />
+                          <line x1="14" x2="14" y1="11" y2="17" />
+                        </svg>
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

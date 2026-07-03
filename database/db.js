@@ -20,8 +20,8 @@ export { db }
 
 export function insertPlace(place) {
   const stmt = db.prepare(`
-    INSERT INTO places (name, address, latitude, longitude, city, phone, email, website, has_website, search_keyword)
-    VALUES (@name, @address, @latitude, @longitude, @city, @phone, @email, @website, @hasWebsite, @searchKeyword)
+    INSERT INTO places (name, address, latitude, longitude, city, phone, email, website, has_website, whatsapp_verified, search_keyword)
+    VALUES (@name, @address, @latitude, @longitude, @city, @phone, @email, @website, @hasWebsite, @whatsappVerified, @searchKeyword)
   `)
   return stmt.run(place)
 }
@@ -44,9 +44,9 @@ export function getAllPlaces(filters = {}) {
     sql += ' AND phone IS NULL'
   }
   if (filters.hasWhatsApp === 'true') {
-    sql += " AND (phone LIKE '08%' OR phone LIKE '+628%' OR phone LIKE '628%')"
+    sql += ' AND whatsapp_verified = 1'
   } else if (filters.hasWhatsApp === 'false') {
-    sql += " AND (phone IS NULL OR (phone NOT LIKE '08%' AND phone NOT LIKE '+628%' AND phone NOT LIKE '628%'))"
+    sql += ' AND (whatsapp_verified = 0 OR whatsapp_verified IS NULL)'
   }
   if (filters.search) {
     sql += ' AND (name LIKE ? OR address LIKE ?)'
@@ -69,6 +69,14 @@ export function getStats() {
   const withoutPhone = db.prepare('SELECT COUNT(*) as count FROM places WHERE phone IS NULL').get()
   const perCity = db.prepare('SELECT city, COUNT(*) as count FROM places GROUP BY city ORDER BY count DESC').all()
   return { total: total.count, withWebsite: withWebsite.count, withoutWebsite: withoutWebsite.count, withPhone: withPhone.count, withoutPhone: withoutPhone.count, perCity }
+}
+
+export function updatePlace(id, data) {
+  const fields = Object.keys(data)
+  if (fields.length === 0) return
+  const setClause = fields.map((f) => `${f} = ?`).join(', ')
+  const values = fields.map((f) => data[f])
+  return db.prepare(`UPDATE places SET ${setClause} WHERE id = ?`).run(...values, id)
 }
 
 export function deletePlace(id) {

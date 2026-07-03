@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace } from '../../database/db.js'
+import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace, updatePlace } from '../../database/db.js'
 import { scrapePlaces } from '../../scraper/googleMapsScraper.js'
 import { db } from '../../database/db.js'
 
@@ -46,6 +46,16 @@ placesRouter.route('/places/:id')
     const place = db.prepare('SELECT * FROM places WHERE id = ?').get(req.params.id)
     if (!place) return res.status(404).json({ error: 'Not found' })
     res.json(place)
+  })
+  .patch((req, res) => {
+    const allowed = ['phone_verified', 'whatsapp_verified']
+    const data = {}
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key] ? 1 : 0
+    }
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields' })
+    updatePlace(req.params.id, data)
+    res.json({ message: 'Updated' })
   })
   .delete((req, res) => {
     const result = deletePlace(req.params.id)

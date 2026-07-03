@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const API = '/api'
 
@@ -42,6 +42,10 @@ export function usePlaces() {
     }
   }, [filters])
 
+  // Keep a ref to the latest fetchPlaces for use in async callbacks
+  const fetchPlacesRef = useRef(fetchPlaces)
+  fetchPlacesRef.current = fetchPlaces
+
   useEffect(() => {
     fetchPlaces()
   }, [fetchPlaces])
@@ -60,7 +64,7 @@ export function usePlaces() {
         if (data.type === 'done' || data.type === 'error') {
           es.close()
           setIsScraping(false)
-          fetchPlaces()
+          fetchPlacesRef.current()
         }
       } catch {
         // ignore malformed events
@@ -80,6 +84,15 @@ export function usePlaces() {
     })
   }
 
+  const updatePlace = async (id, data) => {
+    await fetch(`${API}/places/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    await fetchPlaces()
+  }
+
   const deletePlace = async (id) => {
     await fetch(`${API}/places/${id}`, { method: 'DELETE' })
     await fetchPlaces()
@@ -94,6 +107,6 @@ export function usePlaces() {
     places, stats, cities, loading,
     scrapeProgress, isScraping,
     filters, setFilters,
-    triggerScrape, deletePlace, clearData,
+    triggerScrape, updatePlace, deletePlace, clearData,
   }
 }

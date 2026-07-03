@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
   const keywordRef = useRef(null)
@@ -39,7 +38,6 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
   return (
     <div className="rounded-xl border bg-card text-card-foreground shadow-xs">
       <div className="flex flex-col p-4 gap-4">
-        {/* Input row */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -78,18 +76,12 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
             </Select>
           </div>
           <div className="flex items-end">
-            <Button onClick={handleScrape} disabled={isScraping} className="gap-2">
-              {isScraping ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Search size={16} />
-              )}
+            <Button onClick={handleScrape} disabled={isScraping}>
               {isScraping ? 'Scraping...' : 'Scrape'}
             </Button>
           </div>
         </div>
 
-        {/* Progress area */}
         {isScraping && (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -102,25 +94,19 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
             <div className="h-36 overflow-y-auto rounded-lg border bg-muted/40 p-2.5 text-xs font-mono leading-relaxed space-y-1">
               {scrapeProgress.map((entry, i) => (
                 <div key={i} className={logEntryClass(entry.type)}>
-                  {entry.type === 'status' && `→ ${entry.message}`}
+                  {entry.type === 'status' && entry.message}
                   {entry.type === 'listings' && `Found ${entry.total} results`}
                   {entry.type === 'progress' &&
                     `[${String(entry.current).padStart(String(total).length, ' ')}/${total}] ${entry.name.slice(0, 50)}...`}
                   {entry.type === 'detail' && (
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 size={12} className="shrink-0 text-emerald-600" />
-                      <span className="truncate">{entry.name.slice(0, 45)}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {entry.phone ? '☎' : '—'} {entry.website ? '🌐' : '—'}
-                      </span>
+                    <span>
+                      {entry.name.slice(0, 45)} - phone: {entry.phone ? 'yes' : 'no'}, website:{' '}
+                      {entry.website ? 'yes' : 'no'}
                     </span>
                   )}
-                  {entry.type === 'error' && (
-                    <span className="flex items-center gap-1.5">
-                      <XCircle size={12} className="shrink-0 text-red-600" />
-                      {entry.message}
-                    </span>
-                  )}
+                  {entry.type === 'wa_progress' &&
+                    `WA check: ${entry.current}/${entry.total}`}
+                  {entry.type === 'error' && entry.message}
                 </div>
               ))}
               <div ref={logEndRef} />
@@ -128,11 +114,9 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
           </div>
         )}
 
-        {/* Completion summary */}
         {!isScraping && isDone && (
-          <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
-            <CheckCircle2 size={14} />
-            Done — {scrapeProgress.find((p) => p.type === 'done')?.count ?? 0} places saved
+          <p className="text-xs text-emerald-600 font-medium">
+            Done - {scrapeProgress.find((p) => p.type === 'done')?.count ?? 0} places saved
           </p>
         )}
       </div>

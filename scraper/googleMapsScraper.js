@@ -24,6 +24,9 @@ export async function scrapePlaces(keyword, location, options = {}) {
       await scrapeSequential(browser, listings, total, keyword, location, results, onProgress)
     }
 
+    // Step 3: Verify WhatsApp numbers automatically
+    await verifyWhatsAppNumbers(browser, results, onProgress)
+
     console.log(`  Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
     onProgress?.({ type: 'done', count: results.length })
   } catch (err) {
@@ -33,6 +36,78 @@ export async function scrapePlaces(keyword, location, options = {}) {
     await browser.close()
   }
   return results
+}
+
+// --- Verify WhatsApp numbers via wa.me ---
+async function verifyWhatsAppNumbers(browser, results, onProgress) {
+  const toCheck = results.filter((r) => r.phone)
+  if (toCheck.length === 0) return
+
+  onProgress?.({ type: 'status', message: `Checking ${toCheck.length} WhatsApp numbers...` })
+
+  const poolSize = Math.min(3, toCheck.length)
+  const pages = []
+  for (let p = 0; p < poolSize; p++) {
+    const page = await browser.newPage()
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    )
+    pages.push(page)
+  }
+
+  let completed = 0
+
+  for (let start = 0; start < toCheck.length; start += poolSize) {
+    const batch = toCheck.slice(start, start + poolSize)
+
+    const tasks = batch.map(async (result, idx) => {
+      const page = pages[idx]
+      try {
+        const hasWA = await checkWhatsAppNumber(page, result.phone)
+        result.whatsappVerified = hasWA ? 1 : 0
+      } catch {
+        result.whatsappVerified = 0
+      }
+    })
+
+    await Promise.allSettled(tasks)
+    completed += batch.length
+    onProgress?.({ type: 'wa_progress', current: completed, total: toCheck.length })
+  }
+
+  for (const page of pages) {
+    await page.close().catch(() => {})
+  }
+}
+
+async function checkWhatsAppNumber(page, phone) {
+  if (!phone) return false
+
+  // Normalize to international format
+  const digits = phone.replace(/\D/g, '')
+  let wa = digits
+  if (wa.startsWith('0')) wa = '62' + wa.slice(1)
+  else if (wa.startsWith('628') || wa.startsWith('62')) wa = wa
+  else return false
+
+  if (wa.length < 10) return false
+
+  try {
+    await page.goto(`https://wa.me/${wa}`, { waitUntil: 'networkidle2', timeout: 15000 })
+    await new Promise((r) => setTimeout(r, 1500))
+
+    const text = await page.evaluate(() => document.body.innerText.toLowerCase())
+
+    // wa.me shows error text when number is not on WhatsApp
+    const notFoundPatterns = ['not found', 'tidak ditemukan', 'invalid number', 'phone number']
+    if (notFoundPatterns.some((p) => text.includes(p))) {
+      return false
+    }
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 // --- Step 1: Get all listing URLs from search results ---
@@ -74,7 +149,7 @@ async function scrapeSequential(browser, listings, total, keyword, location, res
     try {
       await processListing(browser, listing, keyword, location, results, onProgress)
     } catch (err) {
-      console.log(`    ✗ error: ${err.message?.slice(0, 80) || 'unknown'}`)
+      console.log(`    x error: ${err.message?.slice(0, 80) || 'unknown'}`)
       onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
     }
   }
@@ -84,7 +159,6 @@ async function scrapeSequential(browser, listings, total, keyword, location, res
 async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyword, location, results, onProgress) {
   const poolSize = Math.min(concurrencyLimit, total)
 
-  // Create a pool of pages
   const pages = []
   for (let p = 0; p < poolSize; p++) {
     const page = await browser.newPage()
@@ -97,7 +171,6 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
 
   let completed = 0
 
-  // Process in batches
   for (let start = 0; start < total; start += poolSize) {
     const batch = listings.slice(start, start + poolSize)
     const batchIndexes = batch.map((_, i) => start + i)
@@ -112,7 +185,7 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
         try {
           await processListingOnPage(page, listing, keyword, location, results, onProgress, globalIdx + 1, total)
         } catch (err) {
-          console.log(`    [${globalIdx + 1}/${total}] ✗ ${err.message?.slice(0, 80) || 'unknown'}`)
+          console.log(`    [${globalIdx + 1}/${total}] x ${err.message?.slice(0, 80) || 'unknown'}`)
           onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
         }
       })()
@@ -122,7 +195,6 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
     completed += batch.length
   }
 
-  // Close pool pages
   for (const page of pages) {
     await page.close().catch(() => {})
   }
@@ -205,10 +277,11 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     email: details.email,
     website: details.website,
     hasWebsite: details.website ? 1 : 0,
+    whatsappVerified: 0,
     searchKeyword: `${keyword} ${location}`,
   })
 
-  console.log(`    ✓ phone: ${details.phone ? 'yes' : 'no'}, website: ${details.website ? 'yes' : 'no'}`)
+  console.log(`    v phone: ${details.phone ? 'yes' : 'no'}, website: ${details.website ? 'yes' : 'no'}`)
   onProgress?.({
     type: 'detail',
     current: current ?? results.length,
