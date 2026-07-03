@@ -1,10 +1,14 @@
-[
-  {
-    "keyword": "restaurant",
-    "location": "Jakarta"
-  },
-  {
-    "keyword": "cafe",
-    "location": "Jakarta"
-  }
-]
+{
+  "mode": "sequential",
+  "concurrency": 3,
+  "queries": [
+    {
+      "keyword": "restaurant",
+      "location": "Jakarta"
+    },
+    {
+      "keyword": "cafe",
+      "location": "Jakarta"
+    }
+  ]
+}

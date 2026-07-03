@@ -40,13 +40,13 @@ placesRouter.get('/stats', (_req, res) => {
 })
 
 placesRouter.post('/scrape', async (req, res) => {
-  const { keyword, location } = req.body
+  const { keyword, location, mode, concurrency } = req.body
   if (!keyword || !location) {
     return res.status(400).json({ error: 'keyword and location are required' })
   }
 
   try {
-    const places = await scrapePlaces(keyword, location)
+    const places = await scrapePlaces(keyword, location, { mode, concurrency })
     for (const place of places) {
       insertPlace(place)
     }

@@ -44,11 +44,11 @@ export function usePlaces() {
     fetchPlaces()
   }, [fetchPlaces])
 
-  const triggerScrape = async (keyword, location) => {
+  const triggerScrape = async (keyword, location, mode = 'sequential') => {
     const res = await fetch(`${API}/scrape`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, location }),
+      body: JSON.stringify({ keyword, location, mode }),
     })
     const data = await res.json()
     await fetchPlaces()
