@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer'
 
 export async function scrapePlaces(keyword, location, options = {}) {
-  const { mode = 'sequential', concurrency = 3 } = options
+  const { mode = 'sequential', concurrency = 3, onProgress } = options
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -10,21 +10,28 @@ export async function scrapePlaces(keyword, location, options = {}) {
   const results = []
 
   try {
+    onProgress?.({ type: 'status', message: 'Searching Google Maps...' })
+
     // Step 1: Get all listing URLs (same for both modes)
     const listings = await getListings(browser, keyword, location)
     const total = Math.min(listings.length, 20)
     console.log(`  Found ${listings.length} results, processing up to ${total}`)
+    onProgress?.({ type: 'listings', total })
 
     if (mode === 'concurrent' && total > 0) {
-      await scrapeConcurrent(browser, listings, total, concurrency, keyword, location, results)
+      await scrapeConcurrent(browser, listings, total, concurrency, keyword, location, results, onProgress)
     } else {
-      await scrapeSequential(browser, listings, total, keyword, location, results)
+      await scrapeSequential(browser, listings, total, keyword, location, results, onProgress)
     }
+
+    console.log(`  Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
+    onProgress?.({ type: 'done', count: results.length })
+  } catch (err) {
+    onProgress?.({ type: 'error', message: err.message })
+    throw err
   } finally {
     await browser.close()
   }
-
-  console.log(`  Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
   return results
 }
 
@@ -57,22 +64,24 @@ async function getListings(browser, keyword, location) {
 }
 
 // --- Sequential: one by one (default) ---
-async function scrapeSequential(browser, listings, total, keyword, location, results) {
+async function scrapeSequential(browser, listings, total, keyword, location, results, onProgress) {
   for (let i = 0; i < total; i++) {
     const listing = listings[i]
     if (!listing.name) continue
     console.log(`  [${i + 1}/${total}] ${listing.name}...`)
+    onProgress?.({ type: 'progress', current: i + 1, total, name: listing.name })
 
     try {
-      await processListing(browser, listing, keyword, location, results)
+      await processListing(browser, listing, keyword, location, results, onProgress)
     } catch (err) {
       console.log(`    ✗ error: ${err.message?.slice(0, 80) || 'unknown'}`)
+      onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
     }
   }
 }
 
 // --- Concurrent: process N listings in parallel with a pool of pages ---
-async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyword, location, results) {
+async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyword, location, results, onProgress) {
   const poolSize = Math.min(concurrencyLimit, total)
 
   // Create a pool of pages
@@ -99,10 +108,12 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
       return (async () => {
         if (!listing.name) return
         console.log(`  [${globalIdx + 1}/${total}] ${listing.name}...`)
+        onProgress?.({ type: 'progress', current: globalIdx + 1, total, name: listing.name })
         try {
-          await processListingOnPage(page, listing, keyword, location, results)
+          await processListingOnPage(page, listing, keyword, location, results, onProgress, globalIdx + 1, total)
         } catch (err) {
           console.log(`    [${globalIdx + 1}/${total}] ✗ ${err.message?.slice(0, 80) || 'unknown'}`)
+          onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
         }
       })()
     })
@@ -118,21 +129,21 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
 }
 
 // --- Extract data from a single listing (uses new page each time) ---
-async function processListing(browser, listing, keyword, location, results) {
+async function processListing(browser, listing, keyword, location, results, onProgress, current, total) {
   const page = await browser.newPage()
   await page.setUserAgent(
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
   )
 
   try {
-    await processListingOnPage(page, listing, keyword, location, results)
+    await processListingOnPage(page, listing, keyword, location, results, onProgress, current, total)
   } finally {
     await page.close().catch(() => {})
   }
 }
 
 // --- Extract data from a single listing (using provided page) ---
-async function processListingOnPage(page, listing, keyword, location, results) {
+async function processListingOnPage(page, listing, keyword, location, results, onProgress, current, total) {
   await page.goto(listing.href, { waitUntil: 'networkidle2', timeout: 20000 })
   await new Promise((r) => setTimeout(r, 2000))
 
@@ -198,6 +209,14 @@ async function processListingOnPage(page, listing, keyword, location, results) {
   })
 
   console.log(`    ✓ phone: ${details.phone ? 'yes' : 'no'}, website: ${details.website ? 'yes' : 'no'}`)
+  onProgress?.({
+    type: 'detail',
+    current: current ?? results.length,
+    total: total ?? 0,
+    name: listing.name,
+    phone: !!details.phone,
+    website: !!details.website,
+  })
 }
 
 // --- Auto-scroll the results panel ---

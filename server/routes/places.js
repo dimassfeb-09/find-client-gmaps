@@ -5,6 +5,28 @@ import { db } from '../../database/db.js'
 
 export const placesRouter = Router()
 
+// SSE clients keyed by sessionId
+const sseClients = new Map()
+
+// --- SSE progress stream ---
+placesRouter.get('/scrape/progress/:sessionId', (req, res) => {
+  const { sessionId } = req.params
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  })
+
+  res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`)
+
+  sseClients.set(sessionId, res)
+
+  req.on('close', () => {
+    sseClients.delete(sessionId)
+  })
+})
+
 placesRouter.get('/places', (req, res) => {
   const filters = {
     city: req.query.city || undefined,
@@ -40,19 +62,46 @@ placesRouter.get('/stats', (_req, res) => {
 })
 
 placesRouter.post('/scrape', async (req, res) => {
-  const { keyword, location, mode, concurrency } = req.body
+  const { keyword, location, mode, concurrency, sessionId } = req.body
   if (!keyword || !location) {
     return res.status(400).json({ error: 'keyword and location are required' })
   }
 
+  // Respond immediately, run scrape in background
+  res.json({ status: 'started' })
+
+  const send = (event) => {
+    const client = sseClients.get(sessionId)
+    if (client) {
+      client.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
+  }
+
+  send({ type: 'status', message: 'Starting scrape...' })
+
   try {
-    const places = await scrapePlaces(keyword, location, { mode, concurrency })
+    const places = await scrapePlaces(keyword, location, {
+      mode,
+      concurrency,
+      onProgress: (p) => send(p),
+    })
+
+    send({ type: 'status', message: `Saving ${places.length} places to database...` })
+
     for (const place of places) {
       insertPlace(place)
     }
-    res.json({ count: places.length, places })
+
+    send({ type: 'done', count: places.length })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    send({ type: 'error', message: err.message })
+  }
+
+  // Close SSE stream
+  const client = sseClients.get(sessionId)
+  if (client) {
+    client.end()
+    sseClients.delete(sessionId)
   }
 })
 

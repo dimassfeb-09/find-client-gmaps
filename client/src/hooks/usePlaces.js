@@ -7,6 +7,8 @@ export function usePlaces() {
   const [stats, setStats] = useState(null)
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(false)
+  const [scrapeProgress, setScrapeProgress] = useState([])
+  const [isScraping, setIsScraping] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     city: '',
@@ -45,14 +47,37 @@ export function usePlaces() {
   }, [fetchPlaces])
 
   const triggerScrape = async (keyword, location, mode = 'sequential') => {
-    const res = await fetch(`${API}/scrape`, {
+    setIsScraping(true)
+    setScrapeProgress([])
+
+    const sessionId = crypto.randomUUID()
+    const es = new EventSource(`${API}/scrape/progress/${sessionId}`)
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        setScrapeProgress((prev) => [...prev, data])
+        if (data.type === 'done' || data.type === 'error') {
+          es.close()
+          setIsScraping(false)
+          fetchPlaces()
+        }
+      } catch {
+        // ignore malformed events
+      }
+    }
+
+    es.onerror = () => {
+      es.close()
+      setIsScraping(false)
+    }
+
+    // Trigger the scrape (non-blocking — server returns immediately)
+    await fetch(`${API}/scrape`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, location, mode }),
+      body: JSON.stringify({ keyword, location, mode, sessionId }),
     })
-    const data = await res.json()
-    await fetchPlaces()
-    return data
   }
 
   const deletePlace = async (id) => {
@@ -65,5 +90,10 @@ export function usePlaces() {
     await fetchPlaces()
   }
 
-  return { places, stats, cities, loading, filters, setFilters, triggerScrape, deletePlace, clearData }
+  return {
+    places, stats, cities, loading,
+    scrapeProgress, isScraping,
+    filters, setFilters,
+    triggerScrape, deletePlace, clearData,
+  }
 }

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -9,55 +9,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Search, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
-export function ScrapeDialog({ onScrape }) {
-  const [keyword, setKeyword] = useState('')
-  const [location, setLocation] = useState('')
-  const [mode, setMode] = useState('sequential')
-  const [scraping, setScraping] = useState(false)
-  const [result, setResult] = useState(null)
+export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
+  const keywordRef = useRef(null)
+  const locationRef = useRef(null)
+  const modeRef = useRef(null)
+  const logEndRef = useRef(null)
 
-  const handleScrape = async () => {
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [scrapeProgress])
+
+  const handleScrape = () => {
+    const keyword = keywordRef.current?.value
+    const location = locationRef.current?.value
+    const mode = modeRef.current?.value || 'sequential'
     if (!keyword || !location) return
-    setScraping(true)
-    setResult(null)
-    try {
-      const data = await onScrape(keyword, location, mode)
-      setResult(`Found ${data.count} places (${mode})`)
-    } catch {
-      setResult('Error scraping')
-    } finally {
-      setScraping(false)
-    }
+    onScrape(keyword, location, mode)
   }
 
+  const lastProgress = scrapeProgress.findLast((p) => p.type === 'progress' || p.type === 'detail')
+  const current = lastProgress?.current ?? 0
+  const total = scrapeProgress.find((p) => p.type === 'listings')?.total ?? 0
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0
+
+  const isDone = scrapeProgress.some((p) => p.type === 'done')
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Scrape Google Maps</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-3 items-end">
+    <div className="rounded-xl border bg-card text-card-foreground shadow-xs">
+      <div className="flex flex-col p-4 gap-4">
+        {/* Input row */}
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
-            <label className="text-sm font-medium mb-1 block">Keyword</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Keyword
+            </label>
             <Input
+              ref={keywordRef}
               placeholder="e.g. restaurant"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              defaultValue=""
+              disabled={isScraping}
             />
           </div>
           <div className="flex-1">
-            <label className="text-sm font-medium mb-1 block">Location</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Location
+            </label>
             <Input
+              ref={locationRef}
               placeholder="e.g. Jakarta"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              defaultValue=""
+              disabled={isScraping}
             />
           </div>
-          <div className="w-[140px]">
-            <label className="text-sm font-medium mb-1 block">Mode</label>
-            <Select value={mode} onValueChange={setMode}>
-              <SelectTrigger>
+          <div className="w-full sm:w-32">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Mode
+            </label>
+            <Select defaultValue="sequential" disabled={isScraping}>
+              <SelectTrigger ref={modeRef}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -66,12 +77,77 @@ export function ScrapeDialog({ onScrape }) {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleScrape} disabled={scraping || !keyword || !location}>
-            {scraping ? 'Scraping...' : 'Scrape'}
-          </Button>
+          <div className="flex items-end">
+            <Button onClick={handleScrape} disabled={isScraping} className="gap-2">
+              {isScraping ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Search size={16} />
+              )}
+              {isScraping ? 'Scraping...' : 'Scrape'}
+            </Button>
+          </div>
         </div>
-        {result && <p className="mt-2 text-sm text-muted-foreground">{result}</p>}
-      </CardContent>
-    </Card>
+
+        {/* Progress area */}
+        {isScraping && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Progress value={percent} className="flex-1 h-2" />
+              <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                {current}/{total}
+              </span>
+            </div>
+
+            <div className="h-36 overflow-y-auto rounded-lg border bg-muted/40 p-2.5 text-xs font-mono leading-relaxed space-y-1">
+              {scrapeProgress.map((entry, i) => (
+                <div key={i} className={logEntryClass(entry.type)}>
+                  {entry.type === 'status' && `→ ${entry.message}`}
+                  {entry.type === 'listings' && `Found ${entry.total} results`}
+                  {entry.type === 'progress' &&
+                    `[${String(entry.current).padStart(String(total).length, ' ')}/${total}] ${entry.name.slice(0, 50)}...`}
+                  {entry.type === 'detail' && (
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 size={12} className="shrink-0 text-emerald-600" />
+                      <span className="truncate">{entry.name.slice(0, 45)}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {entry.phone ? '☎' : '—'} {entry.website ? '🌐' : '—'}
+                      </span>
+                    </span>
+                  )}
+                  {entry.type === 'error' && (
+                    <span className="flex items-center gap-1.5">
+                      <XCircle size={12} className="shrink-0 text-red-600" />
+                      {entry.message}
+                    </span>
+                  )}
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          </div>
+        )}
+
+        {/* Completion summary */}
+        {!isScraping && isDone && (
+          <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
+            <CheckCircle2 size={14} />
+            Done — {scrapeProgress.find((p) => p.type === 'done')?.count ?? 0} places saved
+          </p>
+        )}
+      </div>
+    </div>
   )
+}
+
+function logEntryClass(type) {
+  switch (type) {
+    case 'error':
+      return 'text-red-600'
+    case 'detail':
+    case 'done':
+      return 'text-emerald-700'
+    default:
+      return 'text-muted-foreground'
+  }
 }

@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -6,51 +7,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Trash2, Search } from 'lucide-react'
 
 export function FilterBar({ filters, setFilters, cities, onClear }) {
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="flex-1 min-w-[200px]">
-        <label className="text-sm font-medium mb-1 block">Search</label>
-        <Input
-          placeholder="Search by name or address..."
-          value={filters.search}
-          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-        />
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        Filters
       </div>
+      <div className="flex flex-wrap gap-2">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px]">
+          <Search
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          />
+          <Input
+            placeholder="Search name or address..."
+            value={filters.search}
+            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
 
-      <div className="w-[160px]">
-        <label className="text-sm font-medium mb-1 block">City</label>
+        {/* City */}
         <Select
           value={filters.city || 'all'}
-          onValueChange={(v) =>
-            setFilters((f) => ({ ...f, city: v === 'all' ? '' : v }))
-          }
+          onValueChange={(v) => setFilters((f) => ({ ...f, city: v === 'all' ? '' : v }))}
         >
-          <SelectTrigger>
-            <SelectValue placeholder="All cities" />
+          <SelectTrigger className="w-36 h-9 text-sm">
+            <SelectValue placeholder="City" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All cities</SelectItem>
             {cities.map((c) => (
               <SelectItem key={c.city} value={c.city}>
-                {c.city}
+                {c.city} ({c.count})
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </div>
 
-      <div className="w-[140px]">
-        <label className="text-sm font-medium mb-1 block">Website</label>
+        {/* Website */}
         <Select
           value={filters.hasWebsite || 'all'}
           onValueChange={(v) =>
             setFilters((f) => ({ ...f, hasWebsite: v === 'all' ? '' : v }))
           }
         >
-          <SelectTrigger>
-            <SelectValue placeholder="All" />
+          <SelectTrigger className="w-32 h-9 text-sm">
+            <SelectValue placeholder="Website" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -58,18 +75,16 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
             <SelectItem value="false">No website</SelectItem>
           </SelectContent>
         </Select>
-      </div>
 
-      <div className="w-[140px]">
-        <label className="text-sm font-medium mb-1 block">Phone</label>
+        {/* Phone */}
         <Select
           value={filters.hasPhone || 'all'}
           onValueChange={(v) =>
             setFilters((f) => ({ ...f, hasPhone: v === 'all' ? '' : v }))
           }
         >
-          <SelectTrigger>
-            <SelectValue placeholder="All" />
+          <SelectTrigger className="w-32 h-9 text-sm">
+            <SelectValue placeholder="Phone" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -77,33 +92,51 @@ export function FilterBar({ filters, setFilters, cities, onClear }) {
             <SelectItem value="false">No phone</SelectItem>
           </SelectContent>
         </Select>
-      </div>
 
-      <div className="w-[150px]">
-        <label className="text-sm font-medium mb-1 block">WhatsApp</label>
+        {/* WhatsApp */}
         <Select
           value={filters.hasWhatsApp || 'all'}
           onValueChange={(v) =>
             setFilters((f) => ({ ...f, hasWhatsApp: v === 'all' ? '' : v }))
           }
         >
-          <SelectTrigger>
-            <SelectValue placeholder="All" />
+          <SelectTrigger className="w-36 h-9 text-sm">
+            <SelectValue placeholder="WhatsApp" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">08xx (WA)</SelectItem>
+            <SelectItem value="true">08xx (likely WA)</SelectItem>
             <SelectItem value="false">Non-08xx</SelectItem>
           </SelectContent>
         </Select>
-      </div>
 
-      <button
-        onClick={onClear}
-        className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:opacity-90 text-sm"
-      >
-        Clear Data
-      </button>
+        {/* Clear Button */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              <Trash2 size={14} />
+              Clear Data
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear All Data</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete <strong>all</strong> scraped data?
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onClear}>Delete All</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }
