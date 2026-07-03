@@ -51,7 +51,7 @@ export function usePlaces() {
     fetchPlaces()
   }, [fetchPlaces])
 
-  const triggerScrape = async (keyword, location, mode = 'sequential') => {
+  const triggerScrape = async (keyword, location, mode = 'sequential', maxResults) => {
     setIsScraping(true)
     setScrapeProgress([])
 
@@ -77,11 +77,10 @@ export function usePlaces() {
       setIsScraping(false)
     }
 
-    // Trigger the scrape (non-blocking — server returns immediately)
     await fetch(`${API}/scrape`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, location, mode, sessionId }),
+      body: JSON.stringify({ keyword, location, mode, maxResults, sessionId }),
     })
   }
 

@@ -14,6 +14,7 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
   const keywordRef = useRef(null)
   const locationRef = useRef(null)
   const modeRef = useRef(null)
+  const maxResultsRef = useRef(null)
   const logEndRef = useRef(null)
 
   useEffect(() => {
@@ -24,8 +25,9 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
     const keyword = keywordRef.current?.value
     const location = locationRef.current?.value
     const mode = modeRef.current?.value || 'sequential'
+    const maxResults = parseInt(maxResultsRef.current?.value, 10) || 20
     if (!keyword || !location) return
-    onScrape(keyword, location, mode)
+    onScrape(keyword, location, mode, maxResults)
   }
 
   const lastProgress = scrapeProgress.findLast((p) => p.type === 'progress' || p.type === 'detail')
@@ -38,8 +40,8 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
   return (
     <div className="rounded-xl border bg-card text-card-foreground shadow-xs">
       <div className="flex flex-col p-4 gap-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+          <div className="flex-1 min-w-[140px]">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Keyword
             </label>
@@ -50,7 +52,7 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
               disabled={isScraping}
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[140px]">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Location
             </label>
@@ -61,7 +63,7 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
               disabled={isScraping}
             />
           </div>
-          <div className="w-full sm:w-32">
+          <div className="w-28">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Mode
             </label>
@@ -74,6 +76,20 @@ export function ScrapeDialog({ scrapeProgress, isScraping, onScrape }) {
                 <SelectItem value="concurrent">Concurrent</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="w-24">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Max
+            </label>
+            <Input
+              ref={maxResultsRef}
+              type="number"
+              min={1}
+              max={200}
+              defaultValue={20}
+              disabled={isScraping}
+              className="h-9"
+            />
           </div>
           <div className="flex items-end">
             <Button onClick={handleScrape} disabled={isScraping}>

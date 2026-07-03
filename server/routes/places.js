@@ -75,7 +75,7 @@ placesRouter.get('/stats', (_req, res) => {
 })
 
 placesRouter.post('/scrape', async (req, res) => {
-  const { keyword, location, mode, concurrency, sessionId } = req.body
+  const { keyword, location, mode, concurrency, maxResults, sessionId } = req.body
   if (!keyword || !location) {
     return res.status(400).json({ error: 'keyword and location are required' })
   }
@@ -96,6 +96,7 @@ placesRouter.post('/scrape', async (req, res) => {
     const places = await scrapePlaces(keyword, location, {
       mode,
       concurrency,
+      maxResults: maxResults ? parseInt(maxResults, 10) : undefined,
       onProgress: (p) => send(p),
     })
 

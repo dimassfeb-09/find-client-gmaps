@@ -3,8 +3,38 @@ import { createLogger } from '../server/logger.js'
 
 const log = createLogger('scraper')
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+]
+
+const VIEWPORTS = [
+  { width: 1920, height: 1080 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1536, height: 864 },
+  { width: 1280, height: 720 },
+]
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function randomDelay(min = 2000, max = 6000) {
+  return new Promise((r) => setTimeout(r, min + Math.random() * (max - min)))
+}
+
+async function setupPage(page) {
+  await page.setUserAgent(pickRandom(USER_AGENTS))
+  await page.setViewport(pickRandom(VIEWPORTS))
+}
+
 export async function scrapePlaces(keyword, location, options = {}) {
-  const { mode = 'sequential', concurrency = 3, onProgress } = options
+  const { mode = 'sequential', concurrency = 3, maxResults = 20, onProgress } = options
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -17,8 +47,8 @@ export async function scrapePlaces(keyword, location, options = {}) {
 
     // Step 1: Get all listing URLs (same for both modes)
     const listings = await getListings(browser, keyword, location)
-    const total = Math.min(listings.length, 20)
-    log.info({ total: listings.length }, `Found ${listings.length} results, processing up to ${total}`)
+    const total = Math.min(listings.length, maxResults)
+    log.info({ total: listings.length, maxResults }, `Found ${listings.length} results, processing up to ${total}`)
     onProgress?.({ type: 'listings', total })
 
     if (mode === 'concurrent' && total > 0) {
@@ -30,7 +60,7 @@ export async function scrapePlaces(keyword, location, options = {}) {
     // Step 3: Verify WhatsApp numbers automatically
     await verifyWhatsAppNumbers(browser, results, onProgress)
 
-    log.info({ saved: results.length }, `Completed: ${results.length}/${Math.min(listings.length, 20)} places saved`)
+    log.info({ saved: results.length }, `Completed: ${results.length}/${Math.min(listings.length, maxResults)} places saved`)
     onProgress?.({ type: 'done', count: results.length })
   } catch (err) {
     onProgress?.({ type: 'error', message: err.message })
@@ -52,9 +82,7 @@ async function verifyWhatsAppNumbers(browser, results, onProgress) {
   const pages = []
   for (let p = 0; p < poolSize; p++) {
     const page = await browser.newPage()
-    await page.setUserAgent(
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    )
+    await setupPage(page)
     pages.push(page)
   }
 
@@ -97,11 +125,10 @@ async function checkWhatsAppNumber(page, phone) {
 
   try {
     await page.goto(`https://wa.me/${wa}`, { waitUntil: 'networkidle2', timeout: 15000 })
-    await new Promise((r) => setTimeout(r, 1500))
+    await randomDelay(1000, 2000)
 
     const text = await page.evaluate(() => document.body.innerText.toLowerCase())
 
-    // wa.me shows error text when number is not on WhatsApp
     const notFoundPatterns = ['not found', 'tidak ditemukan', 'invalid number', 'phone number']
     if (notFoundPatterns.some((p) => text.includes(p))) {
       return false
@@ -113,7 +140,7 @@ async function checkWhatsAppNumber(page, phone) {
   }
 }
 
-// --- Standalone: check a single phone number, opens/closes its own browser ---
+// --- Standalone: check a single phone number ---
 export async function verifySingleWhatsApp(phone) {
   const browser = await puppeteer.launch({
     headless: true,
@@ -121,9 +148,7 @@ export async function verifySingleWhatsApp(phone) {
   })
   try {
     const page = await browser.newPage()
-    await page.setUserAgent(
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    )
+    await setupPage(page)
     return await checkWhatsAppNumber(page, phone)
   } finally {
     await browser.close()
@@ -143,9 +168,7 @@ export async function verifyBatchWhatsApp(phones, onProgress) {
     const pages = []
     for (let p = 0; p < poolSize; p++) {
       const page = await browser.newPage()
-      await page.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-      )
+      await setupPage(page)
       pages.push(page)
     }
     let completed = 0
@@ -180,10 +203,7 @@ export async function verifyBatchWhatsApp(phones, onProgress) {
 // --- Step 1: Get all listing URLs from search results ---
 async function getListings(browser, keyword, location) {
   const page = await browser.newPage()
-  await page.setViewport({ width: 1400, height: 900 })
-  await page.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-  )
+  await setupPage(page)
 
   const searchQuery = encodeURIComponent(`${keyword} ${location}`)
   await page.goto(`https://www.google.com/maps/search/${searchQuery}/`, {
@@ -229,10 +249,7 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
   const pages = []
   for (let p = 0; p < poolSize; p++) {
     const page = await browser.newPage()
-    await page.setViewport({ width: 1400, height: 900 })
-    await page.setUserAgent(
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    )
+    await setupPage(page)
     pages.push(page)
   }
 
@@ -270,9 +287,7 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
 // --- Extract data from a single listing (uses new page each time) ---
 async function processListing(browser, listing, keyword, location, results, onProgress, current, total) {
   const page = await browser.newPage()
-  await page.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-  )
+  await setupPage(page)
 
   try {
     await processListingOnPage(page, listing, keyword, location, results, onProgress, current, total)
@@ -283,7 +298,6 @@ async function processListing(browser, listing, keyword, location, results, onPr
 
 // --- Extract data from a single listing (using provided page) ---
 async function processListingOnPage(page, listing, keyword, location, results, onProgress, current, total) {
-  // Navigate and wait for coordinates to appear in URL
   await page.goto(listing.href, { waitUntil: 'networkidle2', timeout: 20000 })
   try {
     await page.waitForFunction(
@@ -293,7 +307,7 @@ async function processListingOnPage(page, listing, keyword, location, results, o
   } catch {
     // proceed even if coordinates aren't in URL yet
   }
-  await new Promise((r) => setTimeout(r, 1500))
+  await randomDelay(1500, 3000)
 
   const details = await page.evaluate(() => {
     const addressEl =
@@ -328,19 +342,16 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     const emailEl = document.querySelector('a[href*="mailto:"]')
     const email = emailEl ? emailEl.href.replace('mailto:', '') : null
 
-    // Try multiple methods to extract coordinates
     const url = window.location.href
     let lat = null
     let lng = null
 
-    // Method 1: @lat,lng,zoom pattern
     let coordMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
     if (coordMatch) {
       lat = parseFloat(coordMatch[1])
       lng = parseFloat(coordMatch[2])
     }
 
-    // Method 2: !3d and !4d markers from share URL
     if (lat === null || lng === null) {
       const latMatch = url.match(/!3d(-?\d+\.\d+)/)
       const lngMatch = url.match(/!4d(-?\d+\.\d+)/)
