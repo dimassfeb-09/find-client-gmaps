@@ -283,8 +283,17 @@ async function processListing(browser, listing, keyword, location, results, onPr
 
 // --- Extract data from a single listing (using provided page) ---
 async function processListingOnPage(page, listing, keyword, location, results, onProgress, current, total) {
+  // Navigate and wait for coordinates to appear in URL
   await page.goto(listing.href, { waitUntil: 'networkidle2', timeout: 20000 })
-  await new Promise((r) => setTimeout(r, 2000))
+  try {
+    await page.waitForFunction(
+      () => window.location.href.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/),
+      { timeout: 5000 },
+    )
+  } catch {
+    // proceed even if coordinates aren't in URL yet
+  }
+  await new Promise((r) => setTimeout(r, 1500))
 
   const details = await page.evaluate(() => {
     const addressEl =
@@ -319,12 +328,29 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     const emailEl = document.querySelector('a[href*="mailto:"]')
     const email = emailEl ? emailEl.href.replace('mailto:', '') : null
 
+    // Try multiple methods to extract coordinates
     const url = window.location.href
-    const coordMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-    const latitude = coordMatch ? parseFloat(coordMatch[1]) : null
-    const longitude = coordMatch ? parseFloat(coordMatch[2]) : null
+    let lat = null
+    let lng = null
 
-    return { address, website, phone, email, latitude, longitude }
+    // Method 1: @lat,lng,zoom pattern
+    let coordMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1])
+      lng = parseFloat(coordMatch[2])
+    }
+
+    // Method 2: !3d and !4d markers from share URL
+    if (lat === null || lng === null) {
+      const latMatch = url.match(/!3d(-?\d+\.\d+)/)
+      const lngMatch = url.match(/!4d(-?\d+\.\d+)/)
+      if (latMatch && lngMatch) {
+        lat = parseFloat(latMatch[1])
+        lng = parseFloat(lngMatch[1])
+      }
+    }
+
+    return { address, website, phone, email, latitude: lat, longitude: lng }
   })
 
   const address = details.address || listing.name
