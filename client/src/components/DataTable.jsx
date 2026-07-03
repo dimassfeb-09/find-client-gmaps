@@ -30,7 +30,7 @@ function toWhatsAppLink(phone) {
   return `https://wa.me/${wa}`
 }
 
-export function DataTable({ places, loading, onDelete }) {
+export function DataTable({ places, loading, onDelete, onCheckWhatsApp, checkingWA }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
@@ -102,7 +102,23 @@ export function DataTable({ places, loading, onDelete }) {
                           </Badge>
                         </>
                       ) : (
-                        <span className="text-xs">{place.phone}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{place.phone}</span>
+                          <button
+                            onClick={() => onCheckWhatsApp?.(place.id)}
+                            disabled={checkingWA === place.id}
+                            className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-medium border border-muted-foreground/20 text-muted-foreground hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 transition-colors"
+                          >
+                            {checkingWA === place.id ? (
+                              <span className="flex items-center gap-1">
+                                <span className="size-2.5 border border-current border-t-transparent rounded-full animate-spin" />
+                                Checking
+                              </span>
+                            ) : (
+                              'Check WA'
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   ) : (

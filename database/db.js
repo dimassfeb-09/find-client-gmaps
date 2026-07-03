@@ -71,6 +71,10 @@ export function getStats() {
   return { total: total.count, withWebsite: withWebsite.count, withoutWebsite: withoutWebsite.count, withPhone: withPhone.count, withoutPhone: withoutPhone.count, perCity }
 }
 
+export function getUnverifiedWhatsAppPlaces() {
+  return db.prepare("SELECT id, name, phone FROM places WHERE phone IS NOT NULL AND (whatsapp_verified = 0 OR whatsapp_verified IS NULL)").all()
+}
+
 export function updatePlace(id, data) {
   const fields = Object.keys(data)
   if (fields.length === 0) return

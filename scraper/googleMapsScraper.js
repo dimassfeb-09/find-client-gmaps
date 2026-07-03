@@ -110,6 +110,70 @@ async function checkWhatsAppNumber(page, phone) {
   }
 }
 
+// --- Standalone: check a single phone number, opens/closes its own browser ---
+export async function verifySingleWhatsApp(phone) {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  })
+  try {
+    const page = await browser.newPage()
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    )
+    return await checkWhatsAppNumber(page, phone)
+  } finally {
+    await browser.close()
+  }
+}
+
+// --- Standalone: check multiple phone numbers with a shared browser ---
+export async function verifyBatchWhatsApp(phones, onProgress) {
+  if (phones.length === 0) return []
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  })
+  const results = []
+  try {
+    const poolSize = Math.min(3, phones.length)
+    const pages = []
+    for (let p = 0; p < poolSize; p++) {
+      const page = await browser.newPage()
+      await page.setUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+      )
+      pages.push(page)
+    }
+    let completed = 0
+    for (let start = 0; start < phones.length; start += poolSize) {
+      const batch = phones.slice(start, start + poolSize)
+      const tasks = batch.map(async (phone, idx) => {
+        try {
+          return await checkWhatsAppNumber(pages[idx], phone)
+        } catch {
+          return false
+        }
+      })
+      const batchResults = await Promise.allSettled(tasks)
+      for (let i = 0; i < batch.length; i++) {
+        results.push({
+          phone: batch[i],
+          hasWhatsApp: batchResults[i].status === 'fulfilled' ? batchResults[i].value : false,
+        })
+      }
+      completed += batch.length
+      onProgress?.({ current: completed, total: phones.length })
+    }
+    for (const page of pages) {
+      await page.close().catch(() => {})
+    }
+  } finally {
+    await browser.close()
+  }
+  return results
+}
+
 // --- Step 1: Get all listing URLs from search results ---
 async function getListings(browser, keyword, location) {
   const page = await browser.newPage()

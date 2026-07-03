@@ -9,6 +9,7 @@ export function usePlaces() {
   const [loading, setLoading] = useState(false)
   const [scrapeProgress, setScrapeProgress] = useState([])
   const [isScraping, setIsScraping] = useState(false)
+  const [checkingWA, setCheckingWA] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     city: '',
@@ -93,6 +94,26 @@ export function usePlaces() {
     await fetchPlaces()
   }
 
+  const checkWhatsApp = async (id) => {
+    setCheckingWA(id)
+    try {
+      await fetch(`${API}/places/${id}/check-whatsapp`, { method: 'POST' })
+    } finally {
+      setCheckingWA(null)
+      await fetchPlaces()
+    }
+  }
+
+  const checkAllWhatsApp = async () => {
+    setCheckingWA('all')
+    try {
+      await fetch(`${API}/check-whatsapp`, { method: 'POST' })
+    } finally {
+      setCheckingWA(null)
+      await fetchPlaces()
+    }
+  }
+
   const deletePlace = async (id) => {
     await fetch(`${API}/places/${id}`, { method: 'DELETE' })
     await fetchPlaces()
@@ -105,8 +126,8 @@ export function usePlaces() {
 
   return {
     places, stats, cities, loading,
-    scrapeProgress, isScraping,
+    scrapeProgress, isScraping, checkingWA,
     filters, setFilters,
-    triggerScrape, updatePlace, deletePlace, clearData,
+    triggerScrape, updatePlace, checkWhatsApp, checkAllWhatsApp, deletePlace, clearData,
   }
 }

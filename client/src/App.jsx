@@ -7,8 +7,8 @@ import { ScrapeDialog } from './components/ScrapeDialog'
 function App() {
   const {
     places, stats, cities, loading,
-    scrapeProgress, isScraping,
-    filters, setFilters, triggerScrape, deletePlace, clearData,
+    scrapeProgress, isScraping, checkingWA,
+    filters, setFilters, triggerScrape, checkWhatsApp, checkAllWhatsApp, deletePlace, clearData,
   } = usePlaces()
 
   return (
@@ -53,16 +53,38 @@ function App() {
 
           <div className="mt-3">
             {!loading && places.length > 0 && (
-              <div className="text-xs text-muted-foreground mb-2">
-                Showing {places.length} result{places.length !== 1 ? 's' : ''}
-                {stats ? (
-                  <span className="text-muted-foreground/60">
-                    {' '}of {stats.total} total
-                  </span>
-                ) : null}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-muted-foreground">
+                  Showing {places.length} result{places.length !== 1 ? 's' : ''}
+                  {stats ? (
+                    <span className="text-muted-foreground/60">
+                      {' '}of {stats.total} total
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  onClick={checkAllWhatsApp}
+                  disabled={checkingWA === 'all'}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 transition-colors"
+                >
+                  {checkingWA === 'all' ? (
+                    <>
+                      <span className="size-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      Checking all...
+                    </>
+                  ) : (
+                    'Check All WhatsApp'
+                  )}
+                </button>
               </div>
             )}
-            <DataTable places={places} loading={loading} onDelete={deletePlace} />
+            <DataTable
+              places={places}
+              loading={loading}
+              onDelete={deletePlace}
+              onCheckWhatsApp={checkWhatsApp}
+              checkingWA={checkingWA}
+            />
           </div>
         </section>
       </main>

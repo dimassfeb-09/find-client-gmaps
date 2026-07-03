@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace, updatePlace } from '../../database/db.js'
-import { scrapePlaces } from '../../scraper/googleMapsScraper.js'
+import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace, updatePlace, getUnverifiedWhatsAppPlaces } from '../../database/db.js'
+import { scrapePlaces, verifySingleWhatsApp, verifyBatchWhatsApp } from '../../scraper/googleMapsScraper.js'
 import { db } from '../../database/db.js'
 
 export const placesRouter = Router()
@@ -113,6 +113,43 @@ placesRouter.post('/scrape', async (req, res) => {
     client.end()
     sseClients.delete(sessionId)
   }
+})
+
+placesRouter.post('/places/:id/check-whatsapp', async (req, res) => {
+  const place = db.prepare('SELECT id, phone FROM places WHERE id = ?').get(req.params.id)
+  if (!place) return res.status(404).json({ error: 'Not found' })
+  if (!place.phone) return res.status(400).json({ error: 'No phone number' })
+  try {
+    const hasWA = await verifySingleWhatsApp(place.phone)
+    updatePlace(place.id, { whatsapp_verified: hasWA ? 1 : 0 })
+    res.json({ id: place.id, phone: place.phone, whatsapp_verified: hasWA ? 1 : 0 })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+placesRouter.post('/check-whatsapp', async (req, res) => {
+  const unverified = getUnverifiedWhatsAppPlaces()
+  if (unverified.length === 0) return res.json({ checked: 0, message: 'No unverified numbers' })
+
+  res.json({ status: 'started', total: unverified.length })
+
+  // Run in background
+  ;(async () => {
+    try {
+      const phones = unverified.map((p) => p.phone)
+      const results = await verifyBatchWhatsApp(phones)
+      for (const r of results) {
+        const match = unverified.find((u) => u.phone === r.phone)
+        if (match) {
+          updatePlace(match.id, { whatsapp_verified: r.hasWhatsApp ? 1 : 0 })
+        }
+      }
+      console.log(`WA batch check completed: ${results.length} numbers`)
+    } catch (err) {
+      console.error('WA batch check error:', err)
+    }
+  })()
 })
 
 placesRouter.post('/clear', (_req, res) => {
