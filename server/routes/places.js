@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getAllPlaces, getCities, getStats, clearAll, insertPlace, deletePlace, updatePlace, getUnverifiedWhatsAppPlaces } from '../../database/db.js'
+import { getAllPlaces, getCities, getStats, clearAll, insertPlace, upsertPlace, deletePlace, updatePlace, getUnverifiedWhatsAppPlaces } from '../../database/db.js'
 import { scrapePlaces, verifySingleWhatsApp, verifyBatchWhatsApp } from '../../scraper/googleMapsScraper.js'
 import { db } from '../../database/db.js'
 import { createLogger } from '../logger.js'
@@ -92,20 +92,20 @@ placesRouter.post('/scrape', async (req, res) => {
 
   send({ type: 'status', message: 'Starting scrape...' })
 
+  let savedCount = 0
+
   try {
     const places = await scrapePlaces(keyword, location, {
       mode,
       concurrency,
       maxResults: maxResults ? parseInt(maxResults, 10) : undefined,
       checkWhatsApp: checkWhatsApp !== undefined ? checkWhatsApp === true || checkWhatsApp === 'true' : undefined,
+      onPlace: (place) => {
+        upsertPlace(place)
+        savedCount++
+      },
       onProgress: (p) => send(p),
     })
-
-    send({ type: 'status', message: `Saving ${places.length} places to database...` })
-
-    for (const place of places) {
-      insertPlace(place)
-    }
 
     send({ type: 'done', count: places.length })
   } catch (err) {

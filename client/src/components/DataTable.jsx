@@ -104,10 +104,12 @@ export function DataTable({ places, loading, onDelete, onCheckWhatsApp, checking
                       ) : (
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs">{place.phone}</span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => onCheckWhatsApp?.(place.id)}
                             disabled={checkingWA === place.id}
-                            className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-medium border border-muted-foreground/20 text-muted-foreground hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 transition-colors"
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-emerald-700 hover:border-emerald-400 hover:bg-emerald-50"
                           >
                             {checkingWA === place.id ? (
                               <span className="flex items-center gap-1">
@@ -117,7 +119,7 @@ export function DataTable({ places, loading, onDelete, onCheckWhatsApp, checking
                             ) : (
                               'Check WA'
                             )}
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>

@@ -26,6 +26,31 @@ export function insertPlace(place) {
   return stmt.run(place)
 }
 
+export function upsertPlace(place) {
+  const existing = db
+    .prepare('SELECT id FROM places WHERE name = ? AND city = ?')
+    .get(place.name, place.city)
+
+  if (existing) {
+    const stmt = db.prepare(`
+      UPDATE places SET
+        address = @address,
+        latitude = @latitude,
+        longitude = @longitude,
+        phone = @phone,
+        email = @email,
+        website = @website,
+        has_website = @hasWebsite,
+        search_keyword = @searchKeyword,
+        scraped_at = CURRENT_TIMESTAMP
+      WHERE id = @id
+    `)
+    return stmt.run({ ...place, id: existing.id })
+  }
+
+  return insertPlace(place)
+}
+
 export function getAllPlaces(filters = {}) {
   let sql = 'SELECT * FROM places WHERE 1=1'
   const params = []

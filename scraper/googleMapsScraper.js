@@ -34,7 +34,7 @@ async function setupPage(page) {
 }
 
 export async function scrapePlaces(keyword, location, options = {}) {
-  const { mode = 'sequential', concurrency = 3, maxResults = 20, checkWhatsApp = true, onProgress } = options
+  const { mode = 'sequential', concurrency = 3, maxResults = 20, checkWhatsApp = true, onPlace, onProgress } = options
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -373,7 +373,7 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     city = addressParts[addressParts.length - 2] || location
   }
 
-  results.push({
+  const placeData = {
     name: listing.name,
     address,
     latitude: details.latitude,
@@ -385,7 +385,10 @@ async function processListingOnPage(page, listing, keyword, location, results, o
     hasWebsite: details.website ? 1 : 0,
     whatsappVerified: 0,
     searchKeyword: `${keyword} ${location}`,
-  })
+  }
+
+  results.push(placeData)
+  onPlace?.(placeData)
 
   log.debug({ hasPhone: !!details.phone, hasWebsite: !!details.website }, `${listing.name} details`)
   onProgress?.({
