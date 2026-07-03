@@ -52,9 +52,9 @@ export async function scrapePlaces(keyword, location, options = {}) {
     onProgress?.({ type: 'listings', total })
 
     if (mode === 'concurrent' && total > 0) {
-      await scrapeConcurrent(browser, listings, total, concurrency, keyword, location, results, onProgress)
+      await scrapeConcurrent(browser, listings, total, concurrency, keyword, location, results, onProgress, onPlace)
     } else {
-      await scrapeSequential(browser, listings, total, keyword, location, results, onProgress)
+      await scrapeSequential(browser, listings, total, keyword, location, results, onProgress, onPlace)
     }
 
     // Step 3: Verify WhatsApp numbers (optional)
@@ -228,7 +228,7 @@ async function getListings(browser, keyword, location) {
 }
 
 // --- Sequential: one by one (default) ---
-async function scrapeSequential(browser, listings, total, keyword, location, results, onProgress) {
+async function scrapeSequential(browser, listings, total, keyword, location, results, onProgress, onPlace) {
   for (let i = 0; i < total; i++) {
     const listing = listings[i]
     if (!listing.name) continue
@@ -236,7 +236,7 @@ async function scrapeSequential(browser, listings, total, keyword, location, res
     onProgress?.({ type: 'progress', current: i + 1, total, name: listing.name })
 
     try {
-      await processListing(browser, listing, keyword, location, results, onProgress)
+      await processListing(browser, listing, keyword, location, results, onProgress, i + 1, total, onPlace)
     } catch (err) {
       log.warn({ err }, `[${i + 1}/${total}] ${listing.name} error`)
       onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
@@ -245,7 +245,7 @@ async function scrapeSequential(browser, listings, total, keyword, location, res
 }
 
 // --- Concurrent: process N listings in parallel with a pool of pages ---
-async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyword, location, results, onProgress) {
+async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyword, location, results, onProgress, onPlace) {
   const poolSize = Math.min(concurrencyLimit, total)
 
   const pages = []
@@ -269,7 +269,7 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
         log.info({ progress: `${globalIdx + 1}/${total}`, name: listing.name }, `[${globalIdx + 1}/${total}] ${listing.name}`)
         onProgress?.({ type: 'progress', current: globalIdx + 1, total, name: listing.name })
         try {
-          await processListingOnPage(page, listing, keyword, location, results, onProgress, globalIdx + 1, total)
+          await processListingOnPage(page, listing, keyword, location, results, onProgress, globalIdx + 1, total, onPlace)
         } catch (err) {
           log.warn({ err }, `[${globalIdx + 1}/${total}] ${listing.name} error`)
           onProgress?.({ type: 'error', message: err.message?.slice(0, 80) || 'unknown' })
@@ -287,19 +287,19 @@ async function scrapeConcurrent(browser, listings, total, concurrencyLimit, keyw
 }
 
 // --- Extract data from a single listing (uses new page each time) ---
-async function processListing(browser, listing, keyword, location, results, onProgress, current, total) {
+async function processListing(browser, listing, keyword, location, results, onProgress, current, total, onPlace) {
   const page = await browser.newPage()
   await setupPage(page)
 
   try {
-    await processListingOnPage(page, listing, keyword, location, results, onProgress, current, total)
+    await processListingOnPage(page, listing, keyword, location, results, onProgress, current, total, onPlace)
   } finally {
     await page.close().catch(() => {})
   }
 }
 
 // --- Extract data from a single listing (using provided page) ---
-async function processListingOnPage(page, listing, keyword, location, results, onProgress, current, total) {
+async function processListingOnPage(page, listing, keyword, location, results, onProgress, current, total, onPlace) {
   await page.goto(listing.href, { waitUntil: 'networkidle2', timeout: 20000 })
   try {
     await page.waitForFunction(
